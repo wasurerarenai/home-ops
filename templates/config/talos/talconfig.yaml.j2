@@ -64,6 +64,30 @@ nodes:
           ip: "#{ cluster_api_addr }#"
         #% endif %#
         #% endif %#
+    #% if item.manifests %#
+    extraManifests:
+      #% for manifest in item.manifests %#
+      - #{ manifest }#
+      #% endfor %#
+    #% endif %#
+    #% if item.extension_services %#
+    extensionServices:
+      #% for es in item.extension_services %#
+      - name: #{ es.name }#
+        configFiles:
+        #% for cf in es.configFiles %#
+          - content: |-
+              #{ cf.content | indent(14, yes) }#
+            mountPath: #{ cf.mountPath }#
+        #% endfor %#
+        #% if es.environment %#
+        environment:
+          #% for env in es.environment %#
+          - #{ env }#
+          #% endfor %#
+        #% endif %#
+      #% endfor %#
+    #% endif %#
     #% if talos_patches('%s' % (item.name)) | length == 0 %#
     #% if item.encrypt_disk | default(false, true) %#
     patches:
