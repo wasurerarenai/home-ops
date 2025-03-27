@@ -24,6 +24,21 @@ import (
 	mtu?:          >=1450 & <=9000
 	secureboot?:   bool
 	encrypt_disk?: bool
+	extension_services?: [...#THExtensionService]
+	manifests?: [...#THExtraManifests]
 }
 
 #Config
+
+#THExtraManifests: string
+
+#THExtensionService: {
+	name: string
+	configFiles: [...#THESConfigFile]
+	environment: [...#THESExtensionEnvironment]
+}
+#THESConfigFile: {
+	content: string
+	mountPath: string
+}
+#THESExtensionEnvironment: string
