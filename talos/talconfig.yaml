@@ -39,6 +39,15 @@ nodes:
         mtu: 9000
         vip:
           ip: "10.0.4.26"
+    extraManifests:
+      - manifests/watchdog-timer-config-nuc.yaml
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
       - # Encrypt system disk with TPM
         |-
@@ -73,6 +82,15 @@ nodes:
         mtu: 9000
         vip:
           ip: "10.0.4.26"
+    extraManifests:
+      - manifests/watchdog-timer-config-nuc.yaml
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
       - # Encrypt system disk with TPM
         |-
@@ -107,6 +125,15 @@ nodes:
         mtu: 9000
         vip:
           ip: "10.0.4.26"
+    extraManifests:
+      - manifests/watchdog-timer-config-nuc.yaml
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
       - # Encrypt system disk with TPM
         |-
@@ -139,6 +166,15 @@ nodes:
           - network: "0.0.0.0/0"
             gateway: "10.0.4.1"
         mtu: 9000
+    extraManifests:
+      - manifests/watchdog-timer-config-nuc.yaml
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
   - hostname: "pic-1"
     ipAddress: "10.0.4.31"
     installDisk: "/dev/sda"
@@ -156,6 +192,13 @@ nodes:
           - network: "0.0.0.0/0"
             gateway: "10.0.4.1"
         mtu: 1500
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
   - hostname: "pic-2"
     ipAddress: "10.0.4.32"
     installDisk: "/dev/sda"
@@ -173,6 +216,13 @@ nodes:
           - network: "0.0.0.0/0"
             gateway: "10.0.4.1"
         mtu: 1500
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
   - hostname: "pic-3"
     ipAddress: "10.0.4.33"
     installDisk: "/dev/sda"
@@ -190,6 +240,13 @@ nodes:
           - network: "0.0.0.0/0"
             gateway: "10.0.4.1"
         mtu: 1500
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
   - hostname: "pic-4"
     ipAddress: "10.0.4.34"
     installDisk: "/dev/sda"
@@ -207,6 +264,13 @@ nodes:
           - network: "0.0.0.0/0"
             gateway: "10.0.4.1"
         mtu: 1500
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
   - hostname: "pic-5"
     ipAddress: "10.0.4.35"
     installDisk: "/dev/sda"
@@ -224,6 +288,13 @@ nodes:
           - network: "0.0.0.0/0"
             gateway: "10.0.4.1"
         mtu: 1500
+    extensionServices:
+      - name: nut-client
+        configFiles:
+          - content: |-
+              MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
 
 # Global patches
 patches:
