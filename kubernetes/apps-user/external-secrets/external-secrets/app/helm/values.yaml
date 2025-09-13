@@ -1,0 +1,32 @@
+---
+bitwarden-sdk-server:
+  enabled: true
+  image:
+    repository: ghcr.io/external-secrets/bitwarden-sdk-server
+  podAnnotations:
+    secret.reloader.stakater.com/reload: "bitwarden-access-token,bitwarden-ids-secret,bitwarden-css-certs,bitwarden-tls-certs"
+  serviceMonitor:
+    enabled: true
+    interval: 1m
+certController:
+  image:
+    repository: ghcr.io/external-secrets/external-secrets
+  serviceMonitor:
+    enabled: true
+    interval: 1m
+grafanaDashboard:
+  enabled: true
+image:
+  repository: ghcr.io/external-secrets/external-secrets
+installCRDs: true
+leaderElect: true
+replicaCount: 1
+serviceMonitor:
+  enabled: true
+  interval: 1m
+webhook:
+  image:
+    repository: ghcr.io/external-secrets/external-secrets
+  serviceMonitor:
+    enabled: true
+    interval: 1m
