@@ -39,8 +39,8 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  #components:
-  #  - ../../../../components/gatus/guarded
+  components:
+    - ../../../../components/gatus/internal
   dependsOn:
     - name: rook-ceph
       namespace: *namespace
@@ -68,7 +68,7 @@ spec:
         name: cluster-secrets
     substitute:
       APP: *app
-      #GATUS_SUBDOMAIN: rook
+      GATUS_SUBDOMAIN: rook
   prune: true
   retryInterval: 2m
   sourceRef:
