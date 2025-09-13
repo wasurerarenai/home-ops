@@ -1,0 +1,4 @@
+# Add driver to network device selector to prevent vlan additional matches
+- op: add
+  path: /machine/network/interfaces/0/bond/deviceSelectors/0/driver
+  value: r8169

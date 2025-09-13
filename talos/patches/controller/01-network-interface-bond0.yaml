@@ -1,0 +1,32 @@
+# https://www.talos.dev/latest/advanced/advanced-networking/#bonding
+- op: add
+  path: /machine/network/interfaces/0/interface
+  value: bond0
+- op: add
+  path: /machine/network/interfaces/0/bond
+  value:
+    deviceSelectors: []
+    mode: active-backup
+    primary: enp4s0
+    # https://www.kernel.org/doc/Documentation/networking/bonding.txt: miimon
+    #miimon: 100
+    #updelay: 200
+    #downdelay: 200
+- op: move
+  from: /machine/network/interfaces/0/deviceSelector
+  path: /machine/network/interfaces/0/bond/deviceSelectors/0
+- op: add
+  path: /machine/network/interfaces/0/bond/deviceSelectors/0/busPath
+  value: 0000:59:00.0
+- op: add
+  path: /machine/network/interfaces/0/bond/deviceSelectors/0/driver
+  value: igc
+# https://www.talos.dev/latest/talos-guides/network/device-selector/#using-device-selector-for-bonding
+- op: move
+  from: /machine/network/interfaces/0/bond/deviceSelectors/0/hardwareAddr
+  path: /machine/network/interfaces/0/bond/deviceSelectors/0/permanentAddr
+- op: add
+  path: /machine/network/interfaces/0/bond/deviceSelectors/1
+  value:
+    busPath: 0000:04:00.0
+    driver: atlantic

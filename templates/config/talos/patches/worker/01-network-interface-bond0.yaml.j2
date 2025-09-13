@@ -1,0 +1,12 @@
+# Make primary interface bond0 for multus name matching
+- op: add
+  path: /machine/network/interfaces/0/interface
+  value: bond0
+- op: add
+  path: /machine/network/interfaces/0/bond
+  value:
+    deviceSelectors: []
+    mode: active-backup
+- op: move
+  from: /machine/network/interfaces/0/deviceSelector
+  path: /machine/network/interfaces/0/bond/deviceSelectors/0

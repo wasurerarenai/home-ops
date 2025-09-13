@@ -49,8 +49,7 @@ nodes:
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
-      - # Encrypt system disk with TPM
-        |-
+      - |-
         machine:
           systemDiskEncryption:
             state:
@@ -63,6 +62,10 @@ nodes:
               keys:
                 - slot: 0
                   tpm: {}
+      - "@./patches/nuc11a/02-network-interfaces-bond0.yaml"
+      - "@./patches/nuc11a/03-network-interfaces-lid.yaml"
+      - "@./patches/nuc11a/machine-i915-gpu.yaml"
+      - "@./patches/nuc11a/network-thunderbolt.yaml"
   - hostname: "nuc11b"
     ipAddress: "10.0.4.28"
     installDisk: "/dev/sda"
@@ -92,8 +95,7 @@ nodes:
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
-      - # Encrypt system disk with TPM
-        |-
+      - |-
         machine:
           systemDiskEncryption:
             state:
@@ -106,6 +108,10 @@ nodes:
               keys:
                 - slot: 0
                   tpm: {}
+      - "@./patches/nuc11b/02-network-interfaces-bond0.yaml"
+      - "@./patches/nuc11b/03-network-interfaces-lid.yaml"
+      - "@./patches/nuc11b/machine-i915-gpu.yaml"
+      - "@./patches/nuc11b/network-thunderbolt.yaml"
   - hostname: "nuc11c"
     ipAddress: "10.0.4.29"
     installDisk: "/dev/sda"
@@ -135,8 +141,7 @@ nodes:
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
-      - # Encrypt system disk with TPM
-        |-
+      - |-
         machine:
           systemDiskEncryption:
             state:
@@ -149,6 +154,10 @@ nodes:
               keys:
                 - slot: 0
                   tpm: {}
+      - "@./patches/nuc11c/02-network-interfaces-bond0.yaml"
+      - "@./patches/nuc11c/03-network-interfaces-lid.yaml"
+      - "@./patches/nuc11c/machine-i915-gpu.yaml"
+      - "@./patches/nuc11c/network-thunderbolt.yaml"
   - hostname: "nuc5"
     ipAddress: "10.0.4.30"
     installDisk: "/dev/sda"
@@ -175,6 +184,10 @@ nodes:
               MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
+    patches:
+      - "@./patches/nuc5/machine-i915-gpu.yaml"
+      - "@./patches/nuc5/network-deviceSelector-driver.yaml"
+      - "@./patches/nuc5/network-mtu.yaml"
   - hostname: "pic-1"
     ipAddress: "10.0.4.31"
     installDisk: "/dev/sda"
@@ -199,6 +212,8 @@ nodes:
               MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
+    patches:
+      - "@./patches/pic-1/network-deviceSelector-driver.yaml"
   - hostname: "pic-2"
     ipAddress: "10.0.4.32"
     installDisk: "/dev/sda"
@@ -223,6 +238,8 @@ nodes:
               MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
+    patches:
+      - "@./patches/pic-2/network-deviceSelector-driver.yaml"
   - hostname: "pic-3"
     ipAddress: "10.0.4.33"
     installDisk: "/dev/sda"
@@ -247,6 +264,8 @@ nodes:
               MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
+    patches:
+      - "@./patches/pic-3/network-deviceSelector-driver.yaml"
   - hostname: "pic-4"
     ipAddress: "10.0.4.34"
     installDisk: "/dev/sda"
@@ -271,6 +290,8 @@ nodes:
               MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
+    patches:
+      - "@./patches/pic-4/network-deviceSelector-driver.yaml"
   - hostname: "pic-5"
     ipAddress: "10.0.4.35"
     installDisk: "/dev/sda"
@@ -295,6 +316,8 @@ nodes:
               MONITOR ${upsmonUpsName}@${upsmonHost}:${upsmonPort} 1 ${upsmonUser} ${upsmonPasswd} slave
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
+    patches:
+      - "@./patches/pic-5/network-deviceSelector-driver.yaml"
 
 # Global patches
 patches:
@@ -307,6 +330,12 @@ patches:
 # Controller patches
 controlPlane:
   patches:
+    - "@./patches/controller/01-network-interface-bond0.yaml"
+    - "@./patches/controller/02-network-physical-nodhcp.yaml"
     - "@./patches/controller/admission-controller-patch.yaml"
     - "@./patches/controller/cluster.yaml"
 
+# Worker patches
+worker:
+  patches:
+    - "@./patches/worker/01-network-interface-bond0.yaml"

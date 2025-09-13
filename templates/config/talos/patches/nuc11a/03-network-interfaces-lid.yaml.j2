@@ -1,0 +1,27 @@
+machine:
+  kernel:
+    modules:
+      # Requires system extension usb-modem-drivers
+      - name: ax88179_178a
+  network:
+    interfaces:
+      - deviceSelector:
+          driver: ax88179_178a
+          permanentAddr: 00:0f:c9:10:f8:1d
+        dhcp: false
+        #mtu:
+        addresses:
+          - 10.0.0.27/32
+        #routes:
+        #  - network: 10.0.0.28/32
+        #    metric: 2048
+      - deviceSelector:
+          driver: ax88179_178a
+          permanentAddr: 00:0f:c9:10:f8:1e
+        dhcp: false
+        #mtu:
+        addresses:
+          - 10.0.0.27/32
+        #routes:
+        #  - network: 10.0.0.29/32
+        #    metric: 2048

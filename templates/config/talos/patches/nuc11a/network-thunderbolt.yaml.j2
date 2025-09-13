@@ -1,0 +1,18 @@
+# https://gist.github.com/gavinmcfall/ea6cb1233d3a300e9f44caf65a32d519
+machine:
+  install:
+    extraKernelArgs:
+      - intel_iommu=on
+      - iommu=pt
+      #- mitigations=off
+      #- net.ifnames=0
+      #- pcie_ports=native
+  kernel:
+    modules:
+      #- name: nbd
+      - name: thunderbolt
+      #- name: thunderbolt_net
+  udev:
+    rules:
+      # Thunderbolt
+      - ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{authorized}=="0", ATTR{authorized}="1"
