@@ -1,0 +1,10 @@
+machine:
+  network:
+    extraHostEntries:
+      # Norco
+      - ip: 10.0.4.21
+        aliases:
+          - nas.${LOCAL_DOMAIN}
+          - nas.${SECRET_DOMAIN}
+          - norco.${LOCAL_DOMAIN}
+          - norco.${SECRET_DOMAIN}
