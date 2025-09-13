@@ -1,0 +1,161 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+includes:
+  cluster-bootstrap:
+    taskfile: ../../bootstrap/Taskfile.yaml
+    internal: true
+
+tasks:
+  default: task --list
+
+  # REF: https://github.com/buroa/k8s-gitops/blob/master/.taskfiles/bootstrap/Taskfile.yaml
+  apps:
+    desc: Bootstrap apps into the Talos cluster / Wipe non-OS disk [MODEL=Samsung SSD 980 PRO 1TB]
+    prompt: Bootstrap Kubernetes Apps ...?
+    cmds:
+      - for: { var: TALOS_NODES }
+        task: wipe
+        vars:
+          MODEL: '{{.MODEL}}'
+          NODE: '{{.ITEM}}'
+      - kubectl config set-cluster {{.TALOS_CONTEXT}} --server "https://{{.TALOS_CONTROLLER}}:6443"
+      #- until kubectl wait nodes --for=condition=Ready=False --all --timeout=10m; do sleep 5; done
+      #- op inject --in-file {{.KUBERNETES_DIR}}/bootstrap/templates/resources.yaml.tpl | kubectl apply --server-side --filename -
+      #- helmfile --quiet --file {{.KUBERNETES_DIR}}/bootstrap/helmfile.yaml apply --skip-diff-on-install --suppress-diff
+      #- talosctl kubeconfig --nodes {{.TALOS_CONTROLLER}} --force {{.KUBERNETES_DIR}}
+      ##
+      - task: cluster-bootstrap:apps
+      - kubectl config set-cluster {{.TALOS_CONTEXT}} --server "{{.KUBECTL_SERVER}}"
+    vars:
+      MODEL: '{{.MODEL | default "Samsung SSD 980 PRO 1TB"}}'
+      TALOS_CONTEXT:
+        sh: talosctl config info --output json | jq --raw-output '.context'
+      KUBECTL_SERVER:
+        sh: kubectl config view -o jsonpath='{.clusters[?(@.name=="{{.TALOS_CONTEXT}}")].cluster.server}'
+      TALOS_CONTROLLER:
+        #sh: talosctl config info --output json | jq --raw-output '.endpoints[]' | shuf -n 1
+        # Use round-robin DNS name from tls_sans map in cluster.yaml until cilium bgp announces kube-apiserver vip
+        sh: yq '.cluster_api_tls_sans[] | select(test("[\D.]+$"))' {{.ROOT_DIR}}/cluster.yaml
+      TALOS_NODES:
+        #sh: talosctl config info --output json | jq --join-output '[.nodes[]] | join(" ")'
+        sh: talosctl config info --output json | jq --join-output '[.endpoints[]] | join(" ")'
+    #env:
+    #  VAULT: K8s
+    preconditions:
+      #- op user get --me
+      - talosctl config info
+      #- test -f {{.KUBERNETES_DIR}}/bootstrap/helmfile.yaml
+      #- test -f {{.KUBERNETES_DIR}}/bootstrap/templates/resources.yaml.tpl
+      #- which jq helmfile kubectl op talosctl
+      - which git jq helmfile kubectl sed sops talosctl yq
+      - test -f {{.ROOT_DIR}}/cluster.yaml
+      - yq '.cluster_api_tls_sans[]' cluster.yaml
+
+  generate-contexts:
+    desc: Generate additional kubectl contexts [*-dns, *-dns-proxy, *-proxy]
+    cmds:
+      - task: kubectl-config:set-cluster:server
+        vars:
+          CONTEXT: '{{.KUBECTL_CONTEXT}}-dns'
+          SERVER: '{{.TALOS_CONTROLLER}}'
+      - task: kubectl-config:set-cluster:server
+        vars:
+          CONTEXT: '{{.KUBECTL_CONTEXT}}-dns-proxy'
+          SERVER: '{{.TALOS_CONTROLLER}}'
+      - task: kubectl-config:set-cluster:proxy-url
+        vars:
+          CONTEXT: '{{.KUBECTL_CONTEXT}}-dns-proxy'
+          PROXY_URL: 'socks5://localhost:1080'
+      - task: kubectl-config:set-cluster:proxy-url
+        vars:
+          CONTEXT: '{{.KUBECTL_CONTEXT}}-proxy'
+          PROXY_URL: 'socks5://localhost:1080'
+    vars:
+      TALOS_CONTEXT:
+        sh: talosctl config info --output json | jq --raw-output '.context'
+      TALOS_CONTROLLER:
+        sh: yq '.tls_sans[] | select(test("[\D.]+$"))' {{.ROOT_DIR}}/cluster.yaml
+      KUBECTL_CLUSTER: '{{.TALOS_CONTEXT}}'
+      KUBECTL_CONTEXT: 'admin@{{.KUBECTL_CLUSTER}}'
+    preconditions:
+      - sh: which talosctl yq
+      - sh: talosctl config info
+
+  kubectl-config:copy-context-suffix:
+    cmds:
+      - kubectl config view --minify --flatten --context="{{.KUBECTL_CONTEXT}}" > "${KUBECONFIG}.temp"
+      - |-
+        sed \
+          -e 's/name: {{.KUBECTL_CLUSTER}}$/name: {{.CLUSTER}}/' \
+          -e 's/cluster: {{.KUBECTL_CLUSTER}}$/cluster: {{.CLUSTER}}/' \
+          -e 's/  name: {{.KUBECTL_CONTEXT}}$/  name: {{.CONTEXT}}/' \
+          -e 's/current-context: {{.KUBECTL_CONTEXT}}$/current-context: {{.CONTEXT}}/' \
+          -i "${KUBECONFIG}.temp"
+      - KUBECONFIG="${KUBECONFIG}:${KUBECONFIG}.temp" kubectl config view --flatten > ${KUBECONFIG}.new
+      - mv "${KUBECONFIG}.new" "${KUBECONFIG}"
+      - rm -f "${KUBECONFIG}.temp"
+    vars:
+      CONTEXT: '{{.CONTEXT}}'
+      CLUSTER: '{{trimPrefix "admin@" .CONTEXT}}'
+      TALOS_CONTEXT:
+        sh: talosctl config info --output json | jq --raw-output '.context'
+      KUBECTL_CLUSTER: '{{.TALOS_CONTEXT}}'
+      KUBECTL_CONTEXT: 'admin@{{.KUBECTL_CLUSTER}}'
+    requires:
+      vars: [CONTEXT]
+    status:
+      - kubectl config get-clusters | grep -q "^{{.CLUSTER}}"
+      - kubectl config get-contexts | grep -q " {{.CONTEXT}} "
+    preconditions:
+      - sh: which kubectl jq sed talosctl
+      - sh: talosctl config info
+
+  kubectl-config:set-cluster:server:
+    cmd: kubectl --context="{{.CONTEXT}}" config set-cluster "{{.CLUSTER}}" --server="https://{{.SERVER}}:6443"
+    deps:
+      - task: kubectl-config:copy-context-suffix
+        vars: { CONTEXT: '{{.CONTEXT}}' }
+    vars:
+      CLUSTER: '{{trimPrefix "admin@" .CONTEXT}}'
+      KUBECTL_SERVER:
+        sh: kubectl config view -o jsonpath='{.clusters[?(@.name=="{{.CLUSTER}}")].cluster.server}'
+    requires:
+      vars: [CONTEXT,SERVER]
+    status:
+      - '{{contains .SERVER .KUBECTL_SERVER }}'
+    preconditions:
+      - sh: test -f "$KUBECONFIG"
+      - sh: which kubectl
+
+  kubectl-config:set-cluster:proxy-url:
+    cmd: kubectl --context="{{.CONTEXT}}" config set-cluster "{{.CLUSTER}}" --proxy-url="{{.PROXY_URL}}"
+    deps:
+      - task: kubectl-config:copy-context-suffix
+        vars: { CONTEXT: '{{.CONTEXT}}' }
+    requires:
+      vars: [CONTEXT,PROXY_URL]
+    vars:
+      CLUSTER: '{{trimPrefix "admin@" .CONTEXT}}'
+      KUBECTL_PROXY_URL:
+        sh: kubectl config view -o jsonpath='{.clusters[?(@.name=="{{.CLUSTER}}")].cluster.proxy-url}'
+      PROXY_URL: '{{.PROXY_URL | default "socks5://localhost:1080"}}'
+    status:
+      - '{{contains .PROXY_URL .KUBECTL_PROXY_URL }}'
+    preconditions:
+      - sh: test -f "$KUBECONFIG"
+      - sh: which kubectl
+
+  wipe:
+    prompt: Wipe {{.NODE}} disk {{.BLOCK}}?
+    cmd: talosctl -n {{.NODE}} wipe disk {{.BLOCK}}
+    vars:
+      BLOCK:
+        sh: talosctl -n {{.NODE}} get disks --output json | jq --raw-output 'select(.spec.model == "{{.MODEL}}") | .metadata.id' | xargs
+    requires:
+      vars: [MODEL, NODE]
+    preconditions:
+      - talosctl config info
+      - talosctl --nodes {{.NODE}} get machineconfig
+      - which talosctl jq

@@ -1,0 +1,302 @@
+---
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+version: '3'
+
+includes:
+  cluster-template:
+    taskfile: ../../template/Taskfile.yaml
+    internal: true
+
+vars:
+  TEMPLATE_REPO_BRANCH: 'main'
+  TEMPLATE_REPO_NAME: 'template'
+  TEMPLATE_REPO_URL: 'https://github.com/onedr0p/cluster-template.git'
+  PATCHES_REPO_BRANCH: 'wasurerarenai-patches'
+  PATCHES_REPO_NAME: 'template-patches'
+  #PATCHES_REPO_URL: 'https://github.com/wasurerarenai/cluster-template.git'
+  PATCHES_REPO_URL: 'git@github.com:wasurerarenai/cluster-template.git'
+
+tasks:
+  default: task --list
+
+  # REF: https://github.com/onedr0p/cluster-template/blob/main/.taskfiles/template/Taskfile.yaml
+  my-configure:
+    desc: Render and validate configuration files [user patches]
+    cmds:
+      #- task: configure
+      #- task: decrypt-secrets
+      - task -d $(git rev-parse --git-dir | sed -e 's#/\.git$##' -e 's#^.git$#.#') configure -y
+    deps: [add-patches]
+
+  add-patches:
+    cmds:
+      - task: git:remote:add-nopush
+        vars:
+          NAME: "{{.PATCHES_REPO_NAME}}"
+          URL: "{{.PATCHES_REPO_URL}}"
+      - git -C {{.DIR}} remote update --prune > /dev/null 2>&1
+      - git -C {{.DIR}} diff --exit-code --quiet || git -C {{.DIR}} stash push -m "{{.PATCHES_REPO_NAME}}"
+      - git stash list -a
+      - task: git:cherry-pick:missing
+        vars:
+          NAME: '{{.PATCHES_REPO_NAME}}'
+          BRANCH: '{{.PATCHES_REPO_BRANCH}}'
+      - |
+        if git -C {{.DIR}} stash list | head -n 1 | grep -q "{{.PATCHES_REPO_NAME}}"; then
+          git -C {{.DIR}} stash pop
+        else
+          true
+        fi
+    deps: [rebase-template]
+    vars:
+      DIR: '{{.DIR | default "."}}'
+
+  rebase-template:
+    cmds:
+      - task: git:remote:add-nopush
+        vars:
+          NAME: "{{.TEMPLATE_REPO_NAME}}"
+          URL: "{{.TEMPLATE_REPO_URL}}"
+      - git -C {{.DIR}} remote update --prune > /dev/null 2>&1
+      - task: git:rebase:autostash-theirs
+        vars:
+          NAME: '{{.TEMPLATE_REPO_NAME}}'
+          BRANCH: '{{.TEMPLATE_REPO_BRANCH}}'
+      #- task: my-configure
+      #- rm -rf {{.ROOT_DIR}}/.private/bootstrap-* {{.ROOT_DIR}}/.private/makejinja-*.toml
+      #- git restore {{.KUBERNETES_DIR}}/*.sops.yaml
+      #- for: ["{{.KUBERNETES_DIR}}/*.sops.yaml",'bootstrap','makejinja.toml','.github/renovate.json5']
+      #  cmd: git restore {{.ITEM}}
+      #- git status
+    vars:
+      DIR: '{{.DIR | default "."}}'
+
+  rebase-template-patches:
+    cmds:
+      - task: git:clone
+        vars:
+          OPTS: '-q'
+          URL: '{{.PATCHES_REPO_URL}}'
+          DIR: '{{.DIR}}'
+      - git  -C {{.DIR}} fetch all
+      - task: git:checkout
+        vars:
+          DIR: '{{.DIR}}'
+          OBJECT: '{{.PATCHES_REPO_BRANCH}}'
+      - task: git:branch:copy
+        vars:
+          DIR: '{{.DIR}}'
+          FORCE: true
+          OLDBRANCH: '{{.PATCHES_REPO_BRANCH}}'
+          NEWBRANCH:
+            sh: echo "archive/$(date +%F)"
+      - task: git:remote:add-nopush
+        vars:
+          DIR: '{{.DIR}}'
+          NAME: "{{.TEMPLATE_REPO_NAME}}"
+          URL: "{{.TEMPLATE_REPO_URL}}"
+      - git -C {{.DIR}} remote update --prune > /dev/null 2>&1
+      - git -C {{.DIR}} rebase -X theirs {{.TEMPLATE_REPO_NAME}}/{{.TEMPLATE_REPO_BRANCH}}
+      #- git -C {{.DIR}} push --force --all -u
+      - task: git:push
+        vars:
+          DIR: '{{.DIR}}'
+          #OPTS: '--force --all -u'
+          OPTS: '--force -u'
+          REPOSITORY: 'origin'
+          REFSPEC: '{{.PATCHES_REPO_BRANCH}}'
+      - task: git:push
+        vars:
+          DIR: '{{.DIR}}'
+          #OPTS: '--force --all -u'
+          OPTS: '--force -u'
+          REPOSITORY: 'origin'
+          REFSPEC:
+            sh: echo "archive/$(date +%F)"
+      - defer:
+          |
+          git -C {{.DIR}} remote prune origin &&\
+          git -C {{.DIR}} repack &&\
+          git -C {{.DIR}} prune-packed &&\
+          git -C {{.DIR}} reflog expire --expire=1.month.ago &&\
+          git -C {{.DIR}} gc --aggressive
+      #- defer: rm -rf {{.DIR}}
+    vars:
+      DIR: '{{.ROOT_DIR}}/.private/{{.PATCHES_REPO_NAME}}'
+
+  git:branch:copy:
+    cmd:
+      git -C {{.DIR}} branch {{if .FORCE}}{{print "-C"}}{{else}}{{print "-c"}}{{end}} {{.OLDBRANCH}} {{.NEWBRANCH}}
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      FORCE: '{{.FORCE | default false}}'
+      OLDBRANCH: '{{.OLDBRANCH}}'
+      NEWBRANCH: '{{.NEWBRANCH}}'
+    status:
+      - git -C {{.DIR}} rev-parse --verify {{.NEWBRANCH}} > /dev/null 2>&1
+    preconditions:
+      - sh: git -C {{.DIR}} rev-parse --verify {{.OLDBRANCH}} > /dev/null 2>&1
+
+  git:branch:delete-local-and-remote:
+    cmds:
+      - git -C {{.DIR}} push -d {{.REMOTE}} {{.BRANCH}}
+      - git -C {{.DIR}} branch -D {{.BRANCH}}
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      REMOTE: '{{.REMOTE}}'
+      BRANCH: '{{.BRANCH}}'
+
+  git:branch:delete-old-archives:
+    cmds:
+      - for: { var: BRANCHES }
+        task: git:branch:delete-local-and-remote
+        vars:
+          REMOTE: origin
+          BRANCH: '{{.ITEM}}'
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      REMOTE: "origin"
+      RETENTION_DAYS: 30
+      DATES_REGEX:
+        sh:
+          |
+          for i in $(seq 1 $RETENTION_DAYS); do
+            V="${V}$(echo -n "$(date -I -d "$(date -I) -$i days")\|")"
+          done
+          echo "${V%\\|}"
+      BRANCHES:
+        sh: git -C {{.DIR}} branch --list -r origin/archive/* | grep -v "main\|{{.PATCHES_REPO_BRANCH}}\|$DATES_REGEX" | sed -e "s#origin/archive#archive#"
+    preconditions:
+      - git -C {{.DIR}} branch --list -r origin/archive/* | grep -q origin/archive/
+
+  git:checkout:
+    cmd:
+      git -C {{.DIR}} checkout {{.OBJECT}}
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      OBJECT: '{{.OBJECT}}'
+    status:
+      #- git rev-parse --abbrev-ref HEAD | grep -q {{.OBJECT}}
+      - git branch --show-current | grep -q {{.OBJECT}}
+
+  git:cherry-pick:commit-check-diffs:
+    cmd:
+      |
+      git -C {{.DIR}} cherry-pick -n {{.HASH}}
+      if git -C {{.DIR}} diff --staged --exit-code --quiet
+      then
+        git -C {{.DIR}} reset --hard --quiet
+      else
+        git -C {{.DIR}} reset --hard --quiet
+        git -C {{.DIR}} cherry-pick {{.HASH}}
+      fi
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      COMMIT: '{{.HASH}}'
+    status:
+      - git -C {{.DIR}} merge-base --is-ancestor {{.HASH}} HEAD
+    preconditions:
+      - msg: |
+          error: Cherry-picking is not possible because you have unmerged files.
+          Check with: git -C {{.DIR}} diff --name-only
+        #  Check with: git -C {{.DIR}} diff --name-only --diff-filter=U
+        #sh: git -C {{.DIR}} diff --diff-filter=U --exit-code --quiet
+        sh: git -C {{.DIR}} diff --exit-code --quiet
+
+  git:cherry-pick:missing:
+    cmds:
+      - for: { var: COMMITS }
+        task: git:cherry-pick:commit-check-diffs
+        vars:
+          HASH: '{{.ITEM}}'
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      NAME:
+        ref: .NAME
+      BRANCH:
+        ref: .BRANCH
+      COMMITS:
+        sh: git -C {{.DIR}} log --pretty=format:"%h" --no-abbrev --no-patch HEAD..{{.NAME}}/{{.BRANCH}}
+    preconditions:
+      - sh: git -C {{.DIR}} config remote.{{.NAME}}.url > /dev/null
+
+  git:clone:
+    cmd:
+      git clone {{.OPTS}} {{.URL}} {{.DIR}}
+    vars:
+      OPTS: '{{.OPTS | default ""}}'
+      URL: '{{.URL}}'
+      URL_PROJECT:
+        sh: v="{{.URL}}"; v="${v##*/}"; echo "${v%.git}"
+      DIR: '{{.DIR | default .URL_PROJECT}}'
+    status:
+      - test -d {{.DIR}}/.git
+    preconditions:
+      - git ls-remote --exit-code -q -h {{.URL}}
+
+  # Ref: https://gitbetter.substack.com/p/how-to-clean-up-the-git-repo-and
+  git:gc:cleanup:
+    cmds:
+      - git -C {{.DIR}} remote prune origin
+      - git -C {{.DIR}} repack
+      - git -C {{.DIR}} prune-packed
+      - git -C {{.DIR}} reflog expire --expire=1.month.ago
+      - git -C {{.DIR}} gc --aggressive
+    vars:
+      DIR: '{{.DIR | default "."}}'
+
+  git:push:
+    cmd:
+      git -C {{.DIR}} push {{.OPTS}}
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      OPTS: '{{.OPTS | default ""}}'
+      REPOSITORY: '{{.REPOSITORY | default ""}}'
+      REFSPEC: '{{.REFSPEC | default ""}}'
+    status:
+      - git -C {{.DIR}} status | grep -q "nothing to commit, working tree clean"
+
+  git:rebase:autostash-theirs:
+    cmd:
+      git -C {{.DIR}} rebase --autostash -X theirs {{.NAME}}/{{.BRANCH}}
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      NAME: '{{.NAME}}'
+      BRANCH: '{{.BRANCH}}'
+      GIT_DIR:
+        sh: git -C {{.DIR}} rev-parse --git-dir
+    preconditions:
+      - sh: git -C {{.DIR}} config remote.{{.NAME}}.url > /dev/null
+      - sh: '! test -d {{.GIT_DIR}}/rebase-apply'
+      - sh: '! test -d {{.GIT_DIR}}/rebase-merge'
+
+  git:remote:add-nopush:
+    cmds:
+      - git -C {{.DIR}} remote add {{.NAME}} {{.URL}}
+      - git -C {{.DIR}} remote set-url --push {{.NAME}} DISABLE
+    vars:
+      DIR: '{{.DIR | default "."}}'
+      NAME: '{{.NAME}}'
+      URL: '{{.URL}}'
+    status:
+      - git -C {{.DIR}} config remote.{{.NAME}}.url > /dev/null
+
+  decrypt-secrets:
+    internal: true
+    cmds:
+      - for: { var: SECRET_FILES }
+        #cmd: |
+        #  if sops filestatus "{{.ITEM}}" | jq --exit-status ".encrypted == true" &>/dev/null; then
+        #      sops --decrypt --in-place "{{.ITEM}}"
+        #  fi
+        cmd: |
+          if [ $(sops filestatus "{{.ITEM}}" | jq ".encrypted") == "true" ]; then
+              sops --decrypt --in-place "{{.ITEM}}"
+          fi
+    vars:
+      SECRET_FILES:
+        sh: find "{{.BOOTSTRAP_DIR}}" "{{.KUBERNETES_DIR}}" "{{.TALOS_DIR}}" -type f -name "*.sops.*" -print
+    preconditions:
+      - test -f {{.SOPS_AGE_KEY_FILE}}
+      - test -f {{.ROOT_DIR}}/.sops.yaml
+      - which jq sops
