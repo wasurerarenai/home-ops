@@ -1,0 +1,36 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/upgrade.cattle.io/plan_v1.json
+apiVersion: upgrade.cattle.io/v1
+kind: Plan
+metadata:
+  name: talos
+spec:
+  version: ${TALOS_VERSION}
+  concurrency: 1
+  postCompleteDelay: 2m
+  exclusive: true
+  serviceAccountName: system-upgrade-controller
+  secrets:
+    - name: system-upgrade-controller
+      path: /var/run/secrets/talos.dev
+      ignoreUpdates: true
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/os
+        operator: Exists
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  upgrade:
+    image: ghcr.io/jfroy/tnu:0.4.3
+    envs:
+      - name: NODE_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.hostIP
+    args:
+      #- --node=$(SYSTEM_UPGRADE_NODE_NAME)
+      - --node=$(NODE_IP)
+      - --tag=$(SYSTEM_UPGRADE_PLAN_LATEST_VERSION)
+      #- --powercycle
