@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "${APP}-gatus-ep"
+  labels:
+    gatus.io/internal: "true"
+data:
+  config.yaml: |
+    endpoints:
+      - name: "${APP}"
+        group: games
+        url: "${GATUS_PROTOCOL:-tcp}://${GATUS_SUBDOMAIN:-${APP}}.${SECRET_DOMAIN}:${GATUS_PORT}"
+        interval: 1m
+        client:
+          dns-resolver: tcp://10.43.0.10:53
+        conditions:
+          - "[CONNECTED] == true"

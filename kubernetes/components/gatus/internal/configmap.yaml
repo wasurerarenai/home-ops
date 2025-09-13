@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "${APP}-gatus-ep"
+  labels:
+    gatus.io/internal: "true"
+data:
+  config.yaml: |
+    endpoints:
+      - name: "${APP}"
+        group: internal
+        url: "${GATUS_PROTOCOL:-https}://${GATUS_SUBDOMAIN:-${APP}}.${GATUS_DOMAIN:-${SECRET_DOMAIN}}:${GATUS_PORT:-443}${GATUS_PATH}"
+        interval: 1m
+        client:
+          dns-resolver: tcp://10.43.0.10:53
+        conditions:
+          - "${GATUS_CONDITION:-[STATUS] == 200}"
+        alerts:
+          - type: pushover
