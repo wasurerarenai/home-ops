@@ -1,0 +1,138 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app plex
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: plex
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      plex:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/home-operations/plex
+              tag: 1.42.1.10060@sha256:04563be281364ba2462285aacb2ca13d7ef7e1d0b19e1203f4c19b4a56840c5c
+            env:
+              TZ: ${TIMEZONE}
+              PLEX_ADVERTISE_URL: https://plex.${SECRET_DOMAIN}:443,http://10.44.0.7:32400
+              PLEX_NO_AUTH_NETWORKS: 10.42.0.0/16
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /identity
+                    port: &port 32400
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 10
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+              limits:
+                gpu.intel.com/i915: 1
+                memory: 16Gi
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups: [44]
+    persistence:
+      config:
+        existingClaim: "{{ .Release.Name }}"
+      config-cache:
+        existingClaim: "{{ .Release.Name }}-cache"
+        globalMounts:
+          - path: /config/Library/Application Support/Plex Media Server/Cache
+      media:
+        type: nfs
+        server: norco.${LOCAL_DOMAIN}
+        path: /mnt/space/media
+        globalMounts:
+          - path: /media-music
+            subPath: music
+          - path: /media-pictures
+            subPath: pictures
+          - path: /media-videos-movies
+            subPath: videos/movies
+          - path: /media-videos-movies-anime
+            subPath: videos/movies-anime
+          - path: /media-videos-movies-kids
+            subPath: videos/movies-kids
+          - path: /media-videos-shows
+            subPath: videos/shows
+          - path: /media-videos-shows-anime
+            subPath: videos/shows-anime
+          - path: /media-videos-shows-kids
+            subPath: videos/shows-kids
+      tmpfs:
+        type: emptyDir
+        globalMounts:
+          - path: /config/Library/Application Support/Plex Media Server/Logs
+            subPath: logs
+          - path: /transcode
+            subPath: transcode
+          - path: /tmp
+            subPath: tmp
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: external
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+            filters:
+              - type: RequestHeaderModifier
+                requestHeaderModifier:
+                  remove:
+                    - Range
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /library/streams
+          - backendRefs:
+              - identifier: app
+                port: *port
+    service:
+      app:
+        annotations:
+          lbipam.cilium.io/ips: 10.44.0.7, ::ffff:10.44.0.7
+        externalTrafficPolicy: Local
+        ports:
+          http:
+            port: *port
+        type: LoadBalancer
