@@ -8,4 +8,5 @@ components:
   - ../../components/common-user
 resources:
   - ./gatus/ks.yaml
+  - ./keda/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
