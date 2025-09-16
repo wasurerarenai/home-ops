@@ -1,0 +1,90 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/probe_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: devices
+spec:
+  module: icmp
+  prober:
+    url: blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+        # Cameras
+        ## Main Floor
+        - cam-garage.${LOCAL_DOMAIN}
+        - cam-kitchen.${LOCAL_DOMAIN}
+        - cam-laundry.${LOCAL_DOMAIN}
+        - cam-rept-black.${LOCAL_DOMAIN}
+        - cam-rept-purple.${LOCAL_DOMAIN}
+        - cam-rept-red.${LOCAL_DOMAIN}
+        - nest-cam-livingroom.${LOCAL_DOMAIN}
+        - nest-cam-office.${LOCAL_DOMAIN}
+        - nest-cam-sakura.${LOCAL_DOMAIN}
+        - nest-cam-zander.${LOCAL_DOMAIN}
+        ## Basement
+        - cam-crafts.${LOCAL_DOMAIN}
+        - cam-storage.${LOCAL_DOMAIN}
+        - cam-study.${LOCAL_DOMAIN}
+        - cam-tardis.${LOCAL_DOMAIN}
+        ## Printers
+        - cam-anycubic.${LOCAL_DOMAIN}
+        - cam-cr10s5.${LOCAL_DOMAIN}
+        - cam-ender-left.${LOCAL_DOMAIN}
+        - cam-ender-right.${LOCAL_DOMAIN}
+        # House IoT
+        ## Media
+        - cast-den-tv.${LOCAL_DOMAIN}
+        - cast-livingroom-tv.${LOCAL_DOMAIN}
+        - cast-masterbed-tv.${LOCAL_DOMAIN}
+        - ghome-mini-den.${LOCAL_DOMAIN}
+        - ghome-mini-masterbed.${LOCAL_DOMAIN}
+        - ghome-mini-sakura.${LOCAL_DOMAIN}
+        - ghome-mini-zander.${LOCAL_DOMAIN}
+        - gnest-mini-crafts.${LOCAL_DOMAIN}
+        - gnest-mini-office.${LOCAL_DOMAIN}
+        - nest-kitchen-hub.${LOCAL_DOMAIN}
+        ## Non-Media
+        - garage-door.${LOCAL_DOMAIN}
+        - nest-thermostat.${LOCAL_DOMAIN}
+        #- printer-basement
+        - printer-office.${LOCAL_DOMAIN}
+        - roomba.${LOCAL_DOMAIN}
+        - plug-kasa-reptiles.${LOCAL_DOMAIN}
+        - vivint-skycontrol.${LOCAL_DOMAIN}
+        - zinwell-basement.${LOCAL_DOMAIN}
+        - zinwell-livingroom.${LOCAL_DOMAIN}
+        # Network
+        - switch-netgear.${LOCAL_DOMAIN}
+        - switch-tp-link-poe.${LOCAL_DOMAIN}
+        # Servers
+        - hp-ipmi.${LOCAL_DOMAIN}
+        - jetson.${LOCAL_DOMAIN}
+        - netgate.${LOCAL_DOMAIN}
+        - norco.${LOCAL_DOMAIN}
+        - nuc11a.${LOCAL_DOMAIN}
+        - nuc11b.${LOCAL_DOMAIN}
+        - nuc11c.${LOCAL_DOMAIN}
+        - nuc5.${LOCAL_DOMAIN}
+        - pikvm.${LOCAL_DOMAIN}
+        - pic-1.${LOCAL_DOMAIN}
+        - pic-2.${LOCAL_DOMAIN}
+        - pic-3.${LOCAL_DOMAIN}
+        - pic-4.${LOCAL_DOMAIN}
+        - pic-5.${LOCAL_DOMAIN}
+        - teklager.${LOCAL_DOMAIN}
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/probe_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: Probe
+metadata:
+  name: nfs
+spec:
+  module: tcp_connect
+  prober:
+    url: blackbox-exporter.observability.svc.cluster.local:9115
+  targets:
+    staticConfig:
+      static:
+        - norco.${LOCAL_DOMAIN}:2049
