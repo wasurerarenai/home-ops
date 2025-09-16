@@ -1,0 +1,9 @@
+machine:
+  network:
+    interfaces:
+      - interface: bond0
+        vlans:
+          # iot
+          - vlanId: 6
+          # vpn
+          - vlanId: 9

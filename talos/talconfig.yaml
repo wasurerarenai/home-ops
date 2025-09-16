@@ -333,6 +333,7 @@ controlPlane:
   patches:
     - "@./patches/controller/01-network-interface-bond0.yaml"
     - "@./patches/controller/02-network-physical-nodhcp.yaml"
+    - "@./patches/controller/03-network-interface-vlans.yaml"
     - "@./patches/controller/admission-controller-patch.yaml"
     - "@./patches/controller/api-access.yaml"
     - "@./patches/controller/cluster-apiserver-mutate-admissions.yaml"
@@ -343,3 +344,4 @@ controlPlane:
 worker:
   patches:
     - "@./patches/worker/01-network-interface-bond0.yaml"
+    - "@./patches/worker/02-network-interface-vlans.yaml"
