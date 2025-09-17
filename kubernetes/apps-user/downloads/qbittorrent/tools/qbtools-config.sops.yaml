@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qbtools-config-secret
+stringData:
+  config.yaml: ENC[AES256_GCM,data:BrZx+QfjTtGF5gAfRw==,iv:ucbplmYvJiwgxSMxzOuWQ1b21KauviZCTKTPfBmfK1I=,tag:qyofRMlQ7t76oO4foM777A==,type:str]
+sops:
+  age:
+    - recipient: age19838570kqjm060wxe9lc9pclvum5tzepsgnc6r6h8l8sccartexq7g05rn
+      enc: |
+        -----BEGIN AGE ENCRYPTED FILE-----
+        YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBxeHNMMFpJeGt1VGpxenJJ
+        S0xzRlE3YWVnQlpyWGJuL2lJdFdNV3Z4NHhzCnhKY3BmR2ZWU3dQVTdJUXBrYkRR
+        UUhUZ1pCNE9WS1pRK2ZMZy91cUdVS1EKLS0tIFZjTFRIZFhMQzJ2SW1yeGFuN252
+        TXJjN0d5Ui9IMUMvdzQrZHBMc01PR0EKnZScyTzfvBqVG3QhOSuKZyOWdp5iQHBY
+        Z/v0m0NrD4Kz/nBz//zQctvJU+JYaQqX63lrUzJvI3DaTz25ciIMhA==
+        -----END AGE ENCRYPTED FILE-----
+  lastmodified: "2025-09-17T22:38:07Z"
+  mac: ENC[AES256_GCM,data:SOFwu0EpxtQZfKet/6/Ue2qKo3ebkxtqColDYPWeNiU64I/kPBCJYLRgeTbfAiKhz4lUL7m3sKwBhJdnx7GalE+KE0ngzbB7jh9ELl12MpNYTDCbpMHN+QtZOioEGmAlcJEt/DKRxW922e/idxFNvQ3fZV0mRIaNsFMoZ+t/ozw=,iv:jnmklRkKKdfd4eGhoD697JXwJDtkyrS99uoZ9fiCSPI=,tag:CJMDUVZdxMIF5mbFlkuYig==,type:str]
+  encrypted_regex: ^(data|stringData)$
+  mac_only_encrypted: true
+  version: 3.10.2
