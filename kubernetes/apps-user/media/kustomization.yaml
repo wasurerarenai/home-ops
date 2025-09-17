@@ -6,6 +6,7 @@ components:
   - ../../components/common
   - ../../components/common-user
 resources:
+  - ./beets/ks.yaml
   - ./jellyfin/ks.yaml
   - ./jellyseerr/ks.yaml
   - ./plex/ks.yaml
