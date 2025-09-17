@@ -1,0 +1,72 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: flaresolverr
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: flaresolverr
+  interval: 30m
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      app:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            env:
+              TZ: "${TIMEZONE}"
+              LOG_LEVEL: info
+              #PORT: &port 80
+              PORT: &port 8191
+              PROMETHEUS_ENABLED: true
+              PROMETHEUS_PORT: &metricsPort 8080
+            image:
+              repository: ghcr.io/flaresolverr/flaresolverr
+              # renovate: depName=ghcr.io/flaresolverr/flaresolverr datasource=docker extractVersion=v(?<version>.*)$
+              tag: v3.4.0@sha256:ab535d1fef5d7f1654c2756949798442ae4bbecee99d4338128aa137fd8eca0e
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+        pod:
+          securityContext:
+            fsGroup: ${APP_GID}
+            fsGroupChangePolicy: OnRootMismatch
+            runAsGroup: ${APP_GID}
+            runAsUser: ${APP_UID}
+        strategy: RollingUpdate
+    service:
+      app:
+        ports:
+          http:
+            port: 8191
+          metrics:
+            port: *metricsPort
+    serviceMonitor:
+      app:
+        serviceName: app
+        endpoints:
+          - port: metrics
+            scheme: http
+            path: /metrics
+            interval: 1m
+            scrapeTimeout: 10s
