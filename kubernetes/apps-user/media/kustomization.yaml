@@ -7,4 +7,5 @@ components:
   - ../../components/common-user
 resources:
   - ./jellyfin/ks.yaml
+  - ./jellyseerr/ks.yaml
   - ./plex/ks.yaml
