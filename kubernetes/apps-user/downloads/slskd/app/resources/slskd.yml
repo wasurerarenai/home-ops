@@ -1,0 +1,22 @@
+---
+directories:
+  downloads: /mnt/downloads/soulseek/complete
+  incomplete: /mnt/downloads/soulseek/incomplete
+flags:
+  no_version_check: true
+metrics:
+  enabled: true
+  url: /metrics
+  authentication:
+    disabled: true
+permissions:
+  file:
+    mode: 770
+remote_configuration: false
+shares:
+  directories:
+    - /mnt/downloads/soulseek/shared
+  filters:
+    - \.ini$
+    - Thumbs.db$
+    - \.DS_Store$
