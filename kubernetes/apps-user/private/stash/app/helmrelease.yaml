@@ -1,0 +1,98 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: stash
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: stash
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      app:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            # See https://github.com/hotio/stash/blob/release/root/etc/services.d/stash/run
+            command:
+              - sh
+              - -c
+              - 'USER="hotio" HOME="$${CONFIG_DIR}" "$${APP_DIR}/stash" --config "$${CONFIG_DIR}/config.yml"'
+            env:
+              ## ghcr.io/hotio/stash:latest
+              ## https://github.com/hotio/stash/blob/nightly/root/etc/cont-init.d/00-start-container
+              PGID: ${APP_GID}
+              PUID: ${APP_UID}
+              TZ: "${TIMEZONE}"
+              UMASK: 002
+            image:
+              repository: ghcr.io/hotio/stash
+              # renovate: depName=ghcr.io/hotio/stash datasource=docker extractVersion=^release-(?<version>.*)$
+              tag: release-0.24.3@sha256:5b877dbeb71cbe05bc265aaa3105c870520a067d15133c1c9d7c4e22d3e44337
+        # Run as non-root user / podSecurityContext override fix
+        initContainers:
+          init-setup-config:
+            # See https://github.com/hotio/stash/blob/release/root/etc/cont-init.d/01-config-app
+            command:
+              - sh
+              - "-c"
+              - |
+                sh -x <<'EOF'
+                ln -s -f -n "$${CONFIG_DIR}/" "$${CONFIG_DIR}/.stash"
+                ln -s -f "$$(command -v ffmpeg)" "$${CONFIG_DIR}/.stash/ffmpeg"
+                ln -s -f "$$(command -v ffprobe)" "$${CONFIG_DIR}/.stash/ffprobe"
+                chown -v -R "$${PUID}:$${PGID}" "/config"
+                chmod -v o+w "/config"
+                EOF
+            env:
+              PUID: ${APP_UID}
+              PGID: ${APP_GID}
+            image:
+              repository: busybox
+              tag: latest
+            securityContext:
+              runAsUser: 0
+        pod:
+          securityContext:
+            fsGroup: ${APP_GID}
+            fsGroupChangePolicy: OnRootMismatch
+            runAsGroup: ${APP_GID}
+            runAsUser: ${APP_UID}
+    persistence:
+      config:
+        existingClaim: "{{ .Release.Name }}"
+      images:
+        type: nfs
+        server: "norco.${LOCAL_DOMAIN}"
+        path: /mnt/space/.projects/images
+        globalMounts:
+          - path: /mnt/images
+      videos:
+        type: nfs
+        server: "norco.${LOCAL_DOMAIN}"
+        path: /mnt/space/.projects/videos
+        globalMounts:
+          - path: /mnt/videos
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+    service:
+      app:
+        ports:
+          http:
+            port: 9999
