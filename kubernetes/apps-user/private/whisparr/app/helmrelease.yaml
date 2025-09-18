@@ -1,0 +1,105 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: whisparr
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: whisparr
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      whisparr:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            env:
+              WHISPARR__ANALYTICS_ENABLED: "False"
+              WHISPARR__AUTHENTICATION_METHOD: Forms
+              WHISPARR__AUTHENTICATION_REQUIRED: Enabled
+              WHISPARR__BRANCH: nightly
+              WHISPARR__INSTANCE_NAME: Whisparr
+              WHISPARR__LOG_LEVEL: info
+              WHISPARR__PORT: &port 6969
+            image:
+              repository: ghcr.io/home-operations/whisparr
+              tag: >-
+                2.0.0.1253@sha256:02d278a7f43a95addebb05a21ac8f447ff4ad2152dcb05ed7a0a14b64e2a800d
+            probes:
+              liveness: &probe
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: *port
+              readiness: *probe
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 1Gi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    persistence:
+      config:
+        existingClaim: "{{ .Release.Name }}"
+      images:
+        type: nfs
+        server: &nas "norco.${LOCAL_DOMAIN}"
+        path: /mnt/space/.projects/images
+        globalMounts:
+          - path: /mnt/images
+      media:
+        type: nfs
+        server: *nas
+        path: /mnt/space/media
+        globalMounts:
+          - path: /mnt/downloads/torrents/complete/prowlarr
+            subPath: downloads/torrents/complete/prowlarr
+          - path: /mnt/downloads/usenet/complete/prowlarr
+            subPath: downloads/usenet/complete/prowlarr
+          - path: /mnt/downloads/torrents/complete/whisparr
+            subPath: downloads/torrents/complete/whisparr
+          - path: /mnt/downloads/usenet/complete/whisparr
+            subPath: downloads/usenet/complete/whisparr
+      tmp:
+        type: emptyDir
+      videos:
+        type: nfs
+        server: *nas
+        path: /mnt/space/.projects/videos
+        globalMounts:
+          - path: /mnt/videos
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+    service:
+      app:
+        ports:
+          http:
+            port: *port
