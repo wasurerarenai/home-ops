@@ -1,0 +1,175 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: sonarr
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: sonarr
+  dependsOn:
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      sonarr: &controller
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app: &container
+            image:
+              repository: ghcr.io/home-operations/sonarr
+              tag: 4.0.15.2940@sha256:ca6c735014bdfb04ce043bf1323a068ab1d1228eea5bab8305ca0722df7baf78
+            env: &env
+              SONARR__APP__INSTANCENAME: Sonarr
+              SONARR__APP__THEME: dark
+              SONARR__AUTH__METHOD: External
+              SONARR__AUTH__REQUIRED: DisabledForLocalAddresses
+              SONARR__LOG__DBENABLED: "False"
+              SONARR__LOG__LEVEL: info
+              SONARR__SERVER__PORT: &port 8989
+              SONARR__UPDATE__BRANCH: main
+              TZ: "${TIMEZONE}"
+            envFrom:
+              - secretRef:
+                  name: "{{ .Release.Name }}-secret"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+              limits:
+                memory: 4Gi
+      anime:
+        <<: *controller
+        containers:
+          app:
+            <<: *container
+            env:
+              <<: *env
+              SONARR__APP__INSTANCENAME: Sonarr-Anime
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    persistence:
+      config:
+        existingClaim: "{{ .Release.Name }}"
+        advancedMounts:
+          sonarr:
+            app:
+              - path: /config
+                subPath: sonarr
+          anime:
+            app:
+              - path: /config
+                subPath: anime
+      config-cache:
+        existingClaim: "{{ .Release.Name }}-cache"
+        advancedMounts:
+          sonarr:
+            app:
+              - path: /config/MediaCover
+                subPath: sonarr/MediaCover
+          anime:
+            app:
+              - path: /config/MediaCover
+                subPath: anime/MediaCover
+      media:
+        type: nfs
+        server: norco.${LOCAL_DOMAIN}
+        path: /mnt/space/media
+        advancedMounts:
+          sonarr:
+            app:
+              - path: /mnt/downloads/torrents/complete/sonarr
+                subPath: downloads/torrents/complete/sonarr
+              - path: /mnt/downloads/usenet/complete/sonarr
+                subPath: downloads/usenet/complete/sonarr
+              - path: /mnt/videos/shows
+                subPath: videos/shows
+              - path: /mnt/videos/shows-kids
+                subPath: videos/shows-kids
+          anime:
+            app:
+              - path: /mnt/downloads/torrents/complete/sonarr-anime
+                subPath: downloads/torrents/complete/sonarr-anime
+              - path: /mnt/downloads/usenet/complete/sonarr-anime
+                subPath: downloads/usenet/complete/sonarr-anime
+              - path: /mnt/videos/shows-anime
+                subPath: videos/shows-anime
+      tmp:
+        type: emptyDir
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - kind: Service
+                name: "{{ .Release.Name }}-app"
+                namespace: downloads
+                port: *port
+                weight: 1
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+      anime:
+        hostnames:
+          - "{{ .Release.Name }}-anime.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - kind: Service
+                name: "{{ .Release.Name }}-anime"
+                namespace: downloads
+                port: *port
+                weight: 1
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+    service:
+      app: &service
+        controller: sonarr
+        ports:
+          http:
+            port: *port
+      anime:
+        <<: *service
+        controller: anime
