@@ -1,0 +1,153 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: bazarr
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: bazarr
+  dependsOn:
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      bazarr: &controller
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app: &container
+            image:
+              repository: ghcr.io/home-operations/bazarr
+              tag: 1.5.2@sha256:dbc87e5ce9e199709188e152e82b3ff5d33e6521a1b3d61e465aa75b4b739e7f
+            env:
+              BAZARR__PORT: &port 6767
+              TZ: "${TIMEZONE}"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /health
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 1Gi
+      anime:
+        <<: *controller
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    persistence:
+      config:
+        existingClaim: "{{ .Release.Name }}"
+        advancedMounts:
+          bazarr:
+            app:
+              - path: /config
+                subPath: bazarr
+          anime:
+            app:
+              - path: /config
+                subPath: anime
+      media:
+        type: nfs
+        server: norco.${LOCAL_DOMAIN}
+        path: /mnt/space/media
+        advancedMounts:
+          bazarr:
+            app:
+              - path: /mnt/videos/movies
+                subPath: videos/movies
+              - path: /mnt/videos/movies-kids
+                subPath: videos/movies-kids
+              - path: /mnt/videos/shows
+                subPath: videos/shows
+              - path: /mnt/videos/shows-kids
+                subPath: videos/shows-kids
+          anime:
+            app:
+              - path: /mnt/videos/movies-anime
+                subPath: videos/movies-anime
+              - path: /mnt/videos/shows-anime
+                subPath: videos/shows-anime
+      tmpfs:
+        type: emptyDir
+        globalMounts:
+          - path: /config/cache
+            subPath: cache
+          - path: /config/log
+            subPath: log
+          - path: /tmp
+            subPath: tmp
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - kind: Service
+                name: "{{ .Release.Name }}-app"
+                namespace: downloads
+                port: *port
+                weight: 1
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+      anime:
+        hostnames:
+          - "{{ .Release.Name }}-anime.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - kind: Service
+                name: "{{ .Release.Name }}-anime"
+                namespace: downloads
+                port: *port
+                weight: 1
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+    service:
+      app: &service
+        controller: bazarr
+        ports:
+          http:
+            port: *port
+      anime:
+        <<: *service
+        controller: anime
