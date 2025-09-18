@@ -6,4 +6,5 @@ components:
   - ../../components/common
   - ../../components/common-user
 resources:
+  - ./stash/ks.yaml
   - ./whisparr/ks.yaml
