@@ -1,0 +1,172 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: radarr
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: radarr
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      retries: 3
+  values:
+    controllers:
+      radarr: &controller
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app: &container
+            image:
+              repository: ghcr.io/home-operations/radarr
+              tag: 5.28.0.10205@sha256:80dec94f1eea0715471853011efdf2c49cf92f8fe3b17b722ad8f8a637e3fead
+            env: &env
+              RADARR__APP__INSTANCENAME: Radarr
+              RADARR__APP__THEME: dark
+              RADARR__AUTH__METHOD: External
+              RADARR__AUTH__REQUIRED: DisabledForLocalAddresses
+              RADARR__LOG__DBENABLED: "False"
+              RADARR__LOG__LEVEL: info
+              RADARR__SERVER__PORT: &port 7878
+              RADARR__UPDATE__BRANCH: master
+              TZ: "${TIMEZONE}"
+            envFrom:
+              - secretRef:
+                  name: "{{ .Release.Name }}-secret"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /ping
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 1
+                  failureThreshold: 3
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: {drop: ["ALL"]}
+            resources:
+              requests:
+                cpu: 100m
+              limits:
+                memory: 4Gi
+      anime:
+        <<: *controller
+        containers:
+          app:
+            <<: *container
+            env:
+              <<: *env
+              RADARR__APP__INSTANCENAME: Radarr-Anime
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 568
+        runAsGroup: 568
+        fsGroup: 568
+        fsGroupChangePolicy: OnRootMismatch
+    persistence:
+      config:
+        existingClaim: "{{ .Release.Name }}"
+        advancedMounts:
+          radarr:
+            app:
+              - path: /config
+                subPath: radarr
+          anime:
+            app:
+              - path: /config
+                subPath: anime
+      config-cache:
+        existingClaim: "{{ .Release.Name }}-cache"
+        advancedMounts:
+          radarr:
+            app:
+              - path: /config/MediaCover
+                subPath: radarr/MediaCover
+          anime:
+            app:
+              - path: /config/MediaCover
+                subPath: anime/MediaCover
+      media:
+        type: nfs
+        server: norco.${LOCAL_DOMAIN}
+        path: /mnt/space/media
+        advancedMounts:
+          radarr:
+            app:
+              - path: /mnt/downloads/torrents/complete/radarr
+                subPath: downloads/torrents/complete/radarr
+              - path: /mnt/downloads/usenet/complete/radarr
+                subPath: downloads/usenet/complete/radarr
+              - path: /mnt/videos/movies
+                subPath: videos/movies
+              - path: /mnt/videos/movies-kids
+                subPath: videos/movies-kids
+          anime:
+            app:
+              - path: /mnt/downloads/torrents/complete/radarr-anime
+                subPath: downloads/torrents/complete/radarr-anime
+              - path: /mnt/downloads/usenet/complete/radarr-anime
+                subPath: downloads/usenet/complete/radarr-anime
+              - path: /mnt/videos/movies-anime
+                subPath: videos/movies-anime
+      tmp:
+        type: emptyDir
+    route:
+      app:
+        hostnames:
+          - "{{ .Release.Name }}.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - kind: Service
+                name: "{{ .Release.Name }}-app"
+                namespace: downloads
+                port: *port
+                weight: 1
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+      anime:
+        hostnames:
+          - "{{ .Release.Name }}-anime.${SECRET_DOMAIN}"
+        parentRefs:
+          - name: internal
+            namespace: kube-system
+            sectionName: https
+        rules:
+          - backendRefs:
+              - kind: Service
+                name: "{{ .Release.Name }}-anime"
+                namespace: downloads
+                port: *port
+                weight: 1
+            matches:
+              - path:
+                  type: PathPrefix
+                  value: /
+    service:
+      app: &service
+        controller: radarr
+        ports:
+          http:
+            port: *port
+      anime:
+        <<: *service
+        controller: anime
