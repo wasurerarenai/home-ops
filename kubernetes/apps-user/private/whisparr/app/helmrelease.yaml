@@ -34,7 +34,7 @@ spec:
             image:
               repository: ghcr.io/home-operations/whisparr
               tag: >-
-                2.0.0.1253@sha256:02d278a7f43a95addebb05a21ac8f447ff4ad2152dcb05ed7a0a14b64e2a800d
+                2.0.0.1282@sha256:c0af54be5be61d6cccdcb6766fea786521db7dc118befdbf6f26da2efe5a2fb5
             probes:
               liveness: &probe
                 enabled: true
